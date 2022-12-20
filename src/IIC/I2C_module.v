@@ -5,8 +5,8 @@ module I2C_module
     input  wire 			i_I2C_Master,				// master or slave_n
     //	 input  wire [15:00] i_I2C_ACK_timeout_ms,	// speaker: timeout wait ACK; // listener: timeout wait s_axis_complete when ACK state;
     // I2C phisical line
-    inout  wire I2C_SDA,								// I2C data  line
-    inout  wire I2C_SCL,								// I2C clock line
+    inout  tri1 I2C_SDA,								// I2C data  line
+    inout  tri1 I2C_SCL,								// I2C clock line
     // I2C statuses
     output wire o_I2C_RX,								// flag when listener
     output wire o_I2C_TX,								// flag when speaker
@@ -1118,8 +1118,8 @@ endmodule
 module I2C_logger
   (
     //phisical line
-    inout  wire I2C_SDA,
-    inout  wire I2C_SCL,
+    inout  tri1 I2C_SDA,
+    inout  tri1 I2C_SCL,
     //statuses
     output wire I2C_RX,
     output reg  I2C_ERR,
