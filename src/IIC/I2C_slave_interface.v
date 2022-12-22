@@ -1123,7 +1123,7 @@ always @(posedge aclk, negedge aresetn) begin
                             endcase
                     endcase
                 end else begin
-                    SDA_r <= 'd0;
+                    SDA_r <= 'd1;
                 end
             end else begin
                 SDA_r <= 'd1;
