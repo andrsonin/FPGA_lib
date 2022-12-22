@@ -243,9 +243,11 @@ assign f_end            = ((FSM_I2C == state_ACK) & f_data_end & (r_rw))    ? f_
 //-------
 assign f_2end           = (f_stop | f_start_repeated)   ? 1'b1 : 1'b0;
 assign f_2err           = ((FSM_I2C > state_ADDR) & (FSM_I2C < state_BUSY)) ? (f_start & (!f_start_repeated)) : 1'b0;
+assign f_reg_addr_pass  = (P_REG_ADDR_BYTE_NUM == 1'd0)                     ? 1'b1 : 1'b0;
+assign f_data_pass      = (P_REG_DATA_BYTE_NUM == 1'd0)                     ? 1'b1 : 1'b0;
 assign f_2write         = ((FSM_I2C == state_ACK) & (!r_rw) & f_addr_ok)    ? f_negedge_sck : 1'b0;
-assign f_2read          = ((FSM_I2C == state_ACK) & r_rw & f_addr_ok)       ? f_negedge_sck : 1'b0;
-assign f_2data          = ((FSM_I2C == state_ACK) & f_reg_end & f_addr_ok)  ? f_negedge_sck : 1'b0;
+assign f_2read          = (((FSM_I2C == state_ACK) & r_rw & f_addr_ok))     ? f_negedge_sck : 1'b0;
+assign f_2data          = (((FSM_I2C == state_ACK) & f_reg_end & f_addr_ok))? f_negedge_sck : 1'b0;
 //-------
 //-----------------------------------------------------------
 // buffers
@@ -288,7 +290,9 @@ always @(posedge aclk, negedge aresetn) begin
         end else begin
             case (FSM_I2C)
                 state_WAIT:
-                    if(f_busy)begin
+                    if(f_reg_addr_pass & f_data_pass)begin
+                        FSM_I2C <= state_WAIT;
+                    end else if(f_busy)begin
                         FSM_I2C <= state_BUSY;
                     end else if(f_start)begin
                         FSM_I2C <= state_START;
@@ -378,10 +382,16 @@ always @(posedge aclk, negedge aresetn) begin
         end else begin
             case (FSM_I2C_REG)
                 state_REG_WAIT:
-                    if(f_2read)begin
+                    if(f_reg_addr_pass & f_data_pass)begin
+                        FSM_I2C_REG <= state_REG_WAIT;
+                    end else if(f_2read)begin
                         FSM_I2C_REG <= state_REG_DATA;
                     end else if(f_2write)begin
-                        FSM_I2C_REG <= state_REG_ADDR;
+                        if(f_reg_addr_pass)begin
+                            FSM_I2C_REG <= state_REG_DATA;
+                        end else begin
+                            FSM_I2C_REG <= state_REG_ADDR;
+                        end
                     // end else begin
                     //     FSM_I2C_REG <= state_WAIT;
                     end
