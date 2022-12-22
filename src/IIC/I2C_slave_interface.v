@@ -4,25 +4,17 @@ module I2C_Slave_to_AXI4_Stream #(
     parameter P_DEV_ADDR_LENGTH     = 7,
     // Register interface address lengh in byte
     parameter P_REG_ADDR_BYTE_NUM   = 1,
+    // Register interface data length in byte
+    parameter P_REG_DATA_BYTE_NUM   = 1,
     // Register space start address 
     parameter P_REG_ADDR_START      = 'h00,  // for future
     // Register space stop address 
     parameter P_REG_ADDR_STOP       = 'hFF,  // for future
     // Register space stop address 
-    parameter P_REG_ADDR_RESTRICT   = 1'b0,  // for future
-    // Register interface data length in byte
-    parameter P_REG_DATA_BYTE_NUM   = 1,
-    // can module sent data next addr ?
-    parameter P_REG_DATA_NEXT       = 1'b0,    // for future
-    // can module sent P_REG_ADDR_START addr after P_REG_ADDR_STOP addr ?
-    parameter P_REG_ADDR_ROTATE     = 1'b0,    // for future
-    // can module sent ACK when P_REG_DATA_NEXT == 1 ?
-    parameter P_REG_DATA_NEXT_ACK   = 1'b0,    // for future
-    // can module sent ACK when P_REG_ADDR_START addr after P_REG_ADDR_STOP addr ?
-    parameter P_REG_ADDR_ROTETE_ACK = 1'b0     // for future
+    parameter P_REG_ADDR_RESTRICT   = 1'b0  // for future
 ) (
     // device address
-    input  tri1 [(P_DEV_ADDR_LENGTH -1):00] address,
+    input  wire [(P_DEV_ADDR_LENGTH -1):00] address,
 
     // // device info
     // input  wire [11:00] manufacture,            // not used
@@ -30,8 +22,8 @@ module I2C_Slave_to_AXI4_Stream #(
     // input  wire [02:00] revision,               // not used
 
     // I2C IO interface
-    inout  tri1 SCK,
-    inout  tri1 SDA, 
+    inout  wire SCK,
+    inout  wire SDA, 
 
     // register address interface
     input  wire                                     reg_ready,
@@ -49,14 +41,9 @@ module I2C_Slave_to_AXI4_Stream #(
     input  wire [((P_REG_DATA_BYTE_NUM *8) -1):00]  rd_data,
     input  wire                                     rd_valid,
 
-    // logging interface
-//    output wire [07:00] log_data,
-//    output wire         log_dir,
-//    output wire         log_valid,
-
     // // I2C debug data
-    // output wire I2C_TX,
-    // output wire I2C_RX,
+    // output wire I2C_RUN_RD,
+    // output wire I2C_RUN_WR,
     // output wire I2C_BUSY,
     // output wire I2C_START,
     // output wire I2C_START_REPEAT,
@@ -68,45 +55,12 @@ module I2C_Slave_to_AXI4_Stream #(
     // output wire I2C_STOP,
     // output wire I2C_ERR,
 
-    // I2c statistic data
-    // output wire [15:00] I2C_cnt_mes,
-    // output wire [15:00] I2C_cnt_mes_tx,
-    // output wire [15:00] I2C_cnt_mes_rx,
-    // output wire [15:00] I2C_cnt_err,
-    // output wire [15:00] I2C_cnt_no_ACK,
-    // output wire [15:00] I2C_cnt_Start,
-    // output wire [15:00] I2C_cnt_Stop,
-    // output wire [15:00] I2C_cnt_Bytes,
-    // output wire [15:00] I2C_cnt_Bytes_reg_rx,
-    // output wire [15:00] I2C_cnt_Bytes_data_rx,
-    // output wire [15:00] I2C_cnt_Bytes_tx,
-    // output wire [15:00] I2C_cnt_Bytes_rx,
-    // output wire [15:00] I2C_cnt_addr_ok,
-    // output wire [07:00] I2C_saw_addr_unique,
-    // output wire [15:00] I2C_mean_busy_tick,
-    // output wire [15:00] I2C_mean_mes_tick,
-    // output wire [15:00] I2C_mean_scl_period_tick,
-    // output wire [15:00] I2C_mean_scl_down_tick,
-    // output wire [15:00] I2C_mean_scl_up_tick,
-    // input  wire reset_stat,
-
     // system inpterface
     input  wire aresetn,
     input  wire reset,
     input  wire aclk
 );
 //===========================================================
-// initial port registers
-// initial begin
-//     I2C_TX          = 1'd0;
-//     I2C_RX          = 1'd0;
-//     I2C_BUSY        = 1'd0;
-//     I2C_ADDR        = 1'd0;
-//     I2C_RW          = 1'd0;
-//     I2C_REG         = 1'd0;
-//     I2C_DATA        = 1'd0;
-//     I2C_ACK         = 1'd0;
-// end
 //-----------------------------------------------------------
 localparam [07:00] 
     state_WAIT   = 'd0,                  // 0
@@ -114,9 +68,9 @@ localparam [07:00]
     state_ADDR   = state_START  + 'd1,   // 2
     state_ACK    = state_ADDR   + 'd1,   // 3
     state_DATA   = state_ACK    + 'd1,   // 4
-    state_BUSY   = state_DATA   + 'd1,   // 5
-    state_ERR    = state_BUSY   + 'd1,   // 6
-    state_STOP   = state_ERR    + 'd1;   // 7
+    state_ERR    = state_DATA   + 'd1,   // 6
+    state_STOP   = state_ERR    + 'd1,   // 7
+    state_BUSY   = state_STOP   + 'd1;   // 5
 
 localparam [01:00]
     state_REG_WAIT  = 'd0,                    // 0
@@ -136,38 +90,38 @@ wire f_down_sda;
 
 wire f_busy;
 wire f_start;
+wire f_start_repeated;
 wire f_stop;
 wire f_ack;
 wire f_nack;
 
+wire f_run;
+wire f_master;
+
+wire f_cnt_bit_en;
 wire f_firt_bit;
 wire f_byte_end;
-
-wire f_addr_ok;
-
 wire f_addr_end;
 wire f_reg_end;
 wire f_data_end;
+wire f_reg_last;
+wire f_data_last;
 
-//wire f_reg_over;
-//wire f_reg_under;
-//wire f_reg_last;
-
-wire f_start_repeated;
+wire f_addr_ok;
 wire f_addr_full;
 
 wire f_2ack;
 wire f_2addr;
 wire f_2bytes;
+wire f_end;
 
 wire f_2end;
 wire f_2err;
 wire f_2write;
 wire f_2read;
 wire f_2data;
-wire f_cnt_bit_en;
 
-wire f_end;
+wire f_WD;
 //-----------------------------------------------------------
 // I2C IO interface
 reg SCK_r;
@@ -177,8 +131,11 @@ reg [07:00]FSM_I2C;
 reg [02:00]FSM_I2C_REG;
 //-------
 reg r_rw;
-reg SCK_last;
-reg SDA_last;
+reg r_master;
+reg r_master_next;
+//-------
+reg [01:00] SCK_last;
+reg [01:00] SDA_last;
 //-------
 reg[03:00] cnt_bit;
 reg[07:00] cnt;
@@ -200,38 +157,39 @@ reg [((P_REG_DATA_BYTE_NUM *8) -1):00]  r_data_rx_buf;
 reg                                     r_data_rx_valid_buf;
 //-----------------------------------------------------------
 initial begin 
-    SCK_r = 1'bZ;
-    SDA_r = 1'bZ;
+    SCK_r = 1'b1;
+    SDA_r = 1'b1;
 //-------
-    FSM_I2C = state_WAIT;
+    FSM_I2C     = state_WAIT;
     FSM_I2C_REG = state_REG_WAIT;
 //-------
-    r_rw = 1'b0;
-    SCK_last = 1'b1;
-    SDA_last = 1'b1;
+    r_rw        = 1'b0;
+    r_master    = 1'b0;
+    SCK_last    = 2'b11;
+    SDA_last    = 2'b11;
 //-------
     cnt_bit = 'd0;
-    cnt = 'd0;
+    cnt     = 'd0;
 //-------
-    r_address = 'h000;
-    r_addr = 10'h000;
-    r_addr_valid = 1'b0;
+    r_address       = 'h000;
+    r_addr          = 10'h000;
+    r_addr_valid    = 1'b0;
 //-------
     r_byte_buf = 'd0;
 //-------
-    r_reg_buf = 'd0;
+    r_reg_buf   = 'd0;
     r_reg_valid = 1'b0;
 //-------
-    r_data_tx_buf = 'd0;
+    r_data_tx_buf       = 'd0;
     r_data_tx_valid_buf = 1'b0;
 //-------
-    r_data_tx_ready = 1'b0;
-    r_data_rx_buf = 'd0;
+    r_data_tx_ready     = 1'b0;
+    r_data_rx_buf       = 'd0;
     r_data_rx_valid_buf = 1'b0;
 end
 //-----------------------------------------------------------
-assign SDA  = SDA_r;
-assign SCK  = SCK_r;
+assign SDA  = SDA_r ? 1'bz : 1'b0;
+assign SCK  = SCK_r ? 1'bz : 1'b0;
 //-------
 assign reg_addr     = r_reg_buf;
 assign reg_rw       = r_rw;
@@ -242,76 +200,79 @@ assign wr_valid = r_data_rx_valid_buf;
 //-------
 assign rd_ready = r_data_tx_ready;
 //-------
-assign f_negedge_sck    = (((SCK == 1'b0)&(SCK_last != 1'b0)))          ? 1'b1 : 1'b0;
-assign f_posedge_sck    = (((SCK != 1'b0)&(SCK_last == 1'b0)))          ? 1'b1 : 1'b0;     
-assign f_up_sck         = (((SCK != 1'b0)&(SCK_last != 1'b0)))         ? 1'b1 : 1'b0; 
-assign f_down_sck       = (((SCK == 1'b0)&(SCK_last == 1'b0)))          ? 1'b1 : 1'b0;
+assign f_negedge_sck    = (((SCK_last[0] == 1'b0) & (SCK_last[1] != 1'b0)))    ? 1'b1 : 1'b0;
+assign f_posedge_sck    = (((SCK_last[0] != 1'b0) & (SCK_last[1] == 1'b0)))    ? 1'b1 : 1'b0;     
+assign f_up_sck         = (((SCK_last[0] != 1'b0) & (SCK_last[1] != 1'b0)))    ? 1'b1 : 1'b0; 
+assign f_down_sck       = (((SCK_last[0] == 1'b0) & (SCK_last[1] == 1'b0)))    ? 1'b1 : 1'b0;
 //-------
-assign f_negedge_sda    = (SDA_last > SDA)          ? 1'b1 : 1'b0;
-assign f_posedge_sda    = (SDA_last < SDA)          ? 1'b1 : 1'b0;
-assign f_up_sda         = (SDA_last & SDA)          ? 1'b1 : 1'b0;
-assign f_down_sda       = ((!SDA_last) & (!SDA))    ? 1'b1 : 1'b0;
+assign f_negedge_sda    = (((SDA_last[0] == 1'b0) & (SDA_last[1] != 1'b0)))    ? 1'b1 : 1'b0;
+assign f_posedge_sda    = (((SDA_last[0] != 1'b0) & (SDA_last[1] == 1'b0)))    ? 1'b1 : 1'b0;
+assign f_up_sda         = (((SDA_last[0] != 1'b0) & (SDA_last[1] != 1'b0)))    ? 1'b1 : 1'b0;
+assign f_down_sda       = (((SDA_last[0] == 1'b0) & (SDA_last[1] == 1'b0)))    ? 1'b1 : 1'b0;
 //-------
-assign f_busy   = (f_down_sda | f_down_sck | f_posedge_sck| f_negedge_sck) ? 1'b1 : 1'b0;
+assign f_busy   = (FSM_I2C == state_WAIT) ? (f_down_sda | f_down_sck | f_posedge_sck| f_negedge_sck) : 1'b0;
 //-------
-assign f_start  = (f_up_sck & f_negedge_sda)    ? 1'b1 : 1'b0;
-assign f_stop   = (f_up_sck & f_posedge_sda)    ? 1'b1 : 1'b0;
+assign f_start          = (f_up_sck & f_negedge_sda)            ? 1'b1      : 1'b0;
+assign f_start_repeated = ((FSM_I2C > state_WAIT) & f_firt_bit) ? f_start   : 1'b0;
+assign f_stop           = (f_up_sck & f_posedge_sda)            ? 1'b1      : 1'b0;
 //-------
-assign f_ack    =  (FSM_I2C == state_ACK) ? f_down_sda    : 1'b0;
-assign f_nack   =  (FSM_I2C == state_ACK) ? f_up_sda      : 1'b0;
+assign f_ack    =  (FSM_I2C == state_ACK) ? SDA_last[0]     : 1'b0;
+assign f_nack   =  (FSM_I2C == state_ACK) ? !SDA_last[0]    : 1'b0;
+//-------
+assign f_run    = ((FSM_I2C > state_START) & (FSM_I2C < state_STOP)) ? 1'b1     : 1'b0;
+assign f_master = ((FSM_I2C > state_START) & (FSM_I2C < state_STOP)) ? r_master : 1'b0;
 //-------
 assign f_addr_ok = (r_addr == r_address)    ? 1'b1 : 1'b0;
 //-------
+assign f_cnt_bit_en = ((FSM_I2C == state_START)|(FSM_I2C == state_STOP)|(FSM_I2C == state_WAIT)|(FSM_I2C == state_ERR)|(FSM_I2C == state_BUSY)) ? 1'b0 : 1'b1;
 assign f_firt_bit   = (cnt_bit == 0)    ? 1'b1 : 1'b0;
-assign f_byte_end   = (cnt_bit == 8)    ? 1'b1 : 1'b0;
+assign f_byte_end   = (cnt_bit == 7)    ? 1'b1 : 1'b0;
 //-------
-assign f_addr_end   = (cnt >= P_DEV_ADDR_LENGTH)        ? 1'b1 : 1'b0;
-assign f_reg_end    = (cnt >= (P_REG_ADDR_BYTE_NUM *8)) ? 1'b1 : 1'b0;
-assign f_data_end   = (cnt >= (P_REG_DATA_BYTE_NUM *8)) ? 1'b1 : 1'b0;
+assign f_addr_end   = ((cnt >= P_DEV_ADDR_LENGTH)&(FSM_I2C == state_ADDR))        ? 1'b1 : 1'b0;
+assign f_reg_end    = ((cnt >= (P_REG_ADDR_BYTE_NUM *8))&(FSM_I2C_REG == state_REG_ADDR)) ? 1'b1 : 1'b0;
+assign f_data_end   = ((cnt >= (P_REG_DATA_BYTE_NUM *8))&(FSM_I2C_REG == state_REG_DATA)) ? 1'b1 : 1'b0;
+assign f_reg_last   = ((cnt == (P_REG_ADDR_BYTE_NUM *8 - 'd1))&(FSM_I2C_REG == state_REG_ADDR)) ? 1'b1 : 1'b0;
+assign f_data_last  = ((cnt == (P_REG_DATA_BYTE_NUM *8 - 'd1))&(FSM_I2C_REG == state_REG_DATA)) ? 1'b1 : 1'b0;
 //-------
-//assign f_reg_over   = (r_reg_addr > P_REG_ADDR_STOP)    ? 1'b1 : 1'b0;
-//assign f_reg_under  = (r_reg_addr < P_REG_ADDR_START)   ? 1'b1 : 1'b0;
-//assign f_reg_last   = (r_reg_addr >= P_REG_ADDR_STOP)   ? 1'b1 : 1'b0;
-//-------
-assign f_start_repeated = (f_start & f_firt_bit)        ? 1'b1 : 1'b0;
 assign f_addr_full      = (P_DEV_ADDR_LENGTH == 'd10)   ? 1'b1 : 1'b0;
 //-------
-assign f_2ack           = (f_byte_end)                  ? f_negedge_sck : 1'b0;
-assign f_2addr          = (f_addr_full & (!f_addr_end)) ? f_negedge_sck : 1'b0;
-assign f_2bytes         = (f_addr_ok)                   ? f_negedge_sck : 1'b0;
+assign f_2ack           = (f_byte_end)                                      ? f_negedge_sck : 1'b0;
+assign f_2addr          = (f_addr_full & (!f_addr_end))                     ? f_negedge_sck : 1'b0;
+assign f_2bytes         = (f_addr_ok)                                       ? f_negedge_sck : 1'b0;
+assign f_end            = ((FSM_I2C == state_ACK) & f_data_end & (r_rw))    ? f_negedge_sck : 1'b0;
 //-------
 assign f_2end           = (f_stop | f_start_repeated)   ? 1'b1 : 1'b0;
-assign f_2err           = (FSM_I2C > state_ADDR) ? (f_start | (!f_addr_ok)) : 1'b0;
+assign f_2err           = ((FSM_I2C > state_ADDR) & (FSM_I2C < state_BUSY)) ? (f_start & (!f_start_repeated)) : 1'b0;
 assign f_2write         = ((FSM_I2C == state_ACK) & (!r_rw) & f_addr_ok)    ? f_negedge_sck : 1'b0;
 assign f_2read          = ((FSM_I2C == state_ACK) & r_rw & f_addr_ok)       ? f_negedge_sck : 1'b0;
 assign f_2data          = ((FSM_I2C == state_ACK) & f_reg_end & f_addr_ok)  ? f_negedge_sck : 1'b0;
-
-assign f_end            = ((FSM_I2C == state_ACK) & f_data_end & (r_rw))    ? f_negedge_sck : 1'b0;
-//-------
-assign f_cnt_bit_en     = ((FSM_I2C == state_START)|(FSM_I2C == state_STOP)|(FSM_I2C == state_WAIT)|(FSM_I2C == state_ERR)) ? 1'b0 : 1'b1;
 //-------
 //-----------------------------------------------------------
 // buffers
 always @(posedge aclk, negedge aresetn) begin
     if(!aresetn)begin
-        SCK_last    <= 1'b1;
-        SDA_last    <= 1'b1;
+        SCK_last    <= 2'b11;
+        SDA_last    <= 2'b11;
         r_address   <= 'h000;
     end else begin
         if(reset)begin
-            SCK_last    <= 1'b1;
-            SDA_last    <= 1'b1;
+            SCK_last    <= 2'b11;
+            SDA_last    <= 2'b11;
             r_address   <= 'h000;
         end else begin
-            SCK_last    <= SCK;
-            SDA_last    <= SDA;
+            SCK_last[0]    <= SCK;
+            SDA_last[0]    <= SDA;
+            SCK_last[1]    <= SCK_last[0];
+            SDA_last[1]    <= SDA_last[0];
             
-            if(FSM_I2C > state_WAIT)begin
+            if(FSM_I2C > state_START)begin
                 r_address   <= r_address;
-            end else if(((r_address > 'h007) & (r_address < 'h078))|((r_address > 'h08F) & (r_address < 'h3FF)))begin
+            end else if((P_DEV_ADDR_LENGTH == 'd10)&(address > 'h000) & (address < ('h3FF + 'd1)))begin
+                r_address   <= address;
+            end else if((P_DEV_ADDR_LENGTH == 'd7)&(address > 'h007) & (address < 'h078))begin
                 r_address   <= address;
             end else begin
-                r_address   <= 'h000;
+                r_address   <= 'hFFF;
             end
         end 
     end
@@ -363,7 +324,7 @@ always @(posedge aclk, negedge aresetn) begin
                         FSM_I2C <= state_BUSY;
                     end else if(f_2bytes)begin
                         FSM_I2C <= state_DATA;
-                    end else if(f_nack & f_negedge_sck)begin
+                    end else if(f_negedge_sck)begin
                         FSM_I2C <= state_BUSY;
                     // end else begin
                     //     FSM_I2C <= state_ACK;
@@ -468,10 +429,52 @@ always @(posedge aclk, negedge aresetn) begin
             cnt_bit <= 'd0;
         end else if((FSM_I2C == state_ACK) & (f_negedge_sck))begin
             cnt_bit <= 'd0;
-        end else if(f_posedge_sck)begin
+        end else if(f_negedge_sck)begin
             cnt_bit <= cnt_bit +'d1;
         end else begin
             cnt_bit <= cnt_bit;
+        end
+    end
+end
+//-------
+// selector bus master
+always @(posedge aclk, negedge aresetn) begin
+    if(!aresetn)begin
+        r_master    <= 1'b0;
+    end else begin
+        if(reset)begin
+            r_master    <= 1'b0;
+        end else if(!f_cnt_bit_en)begin
+            r_master    <= 1'b0;
+        end else if(f_negedge_sck)begin
+            r_master    <= r_master_next;
+        end else begin
+            r_master    <= r_master;
+        end 
+    end
+end
+//-------
+// selector bus master next
+always @(posedge aclk, negedge aresetn) begin
+    if(!aresetn)begin
+        r_master_next <= 1'b0;
+    end else begin
+        if(reset)begin
+            r_master_next <= 1'b0;
+        end else if(!f_cnt_bit_en)begin
+            r_master_next <= 1'b0;
+        end else if(f_posedge_sck)begin
+           if((FSM_I2C == state_ADDR) & (cnt_bit == 7))begin
+                r_master_next <= 1'b1;
+           end else if((FSM_I2C == state_DATA) & (cnt_bit == 7))begin
+                r_master_next <= (!r_rw);
+           end else if(FSM_I2C == state_ACK) begin
+                r_master_next <= r_rw;
+           end else begin
+                r_master_next <= r_master_next;
+           end
+        end else begin
+            r_master_next <= r_master_next;
         end
     end
 end
@@ -487,7 +490,7 @@ always @(posedge aclk, negedge aresetn) begin
             r_byte_buf <= 'h00;
         end else if(FSM_I2C == state_ADDR)begin
             if(f_posedge_sck)begin
-                r_byte_buf[00] <= SDA;
+                r_byte_buf[00] <= SDA_last[0];
                 r_byte_buf[07:01] <= r_byte_buf[06:00];
             end else begin
                 r_byte_buf <= r_byte_buf;
@@ -495,7 +498,7 @@ always @(posedge aclk, negedge aresetn) begin
         end else if(FSM_I2C == state_ACK)begin
             if(r_rw & f_addr_ok)begin
                 if(f_posedge_sck)begin
-                    r_byte_buf <= r_data_rx_buf[07:00];
+                    r_byte_buf <= r_data_tx_buf[07:00];
                 end else begin
                     r_byte_buf <= r_byte_buf;
                 end
@@ -509,15 +512,13 @@ always @(posedge aclk, negedge aresetn) begin
         end else if(FSM_I2C == state_DATA)begin
             if(r_rw)begin
                 if(f_negedge_sck)begin
-                    r_byte_buf <= r_byte_buf;
-//                    r_byte_buf[00] <= SDA;
-//                    r_byte_buf[07:01] <= r_byte_buf[06:00];
+                    r_byte_buf <= r_byte_buf >>> 1;
                 end else begin
                     r_byte_buf <= r_byte_buf;
                 end
             end else begin
                 if(f_posedge_sck)begin
-                    r_byte_buf[00] <= SDA;
+                    r_byte_buf[00] <= SDA_last[0];
                     r_byte_buf[07:01] <= r_byte_buf[06:00];
                 end else begin
                     r_byte_buf <= r_byte_buf;
@@ -546,7 +547,7 @@ always @(posedge aclk, negedge aresetn) begin
             r_rw            <= 1'b1;
         end else if(FSM_I2C == state_ADDR)begin
             if(f_negedge_sck)begin
-                if(cnt_bit >= 'd8)begin
+                if(f_byte_end)begin
                     if(cnt == 'd8)begin
                         r_rw    <= r_byte_buf[0];
                         case (r_byte_buf[07:01])
@@ -631,9 +632,19 @@ always @(posedge aclk, negedge aresetn) begin
                     case (r_addr[06:00])
                         7'b0000000: // rw == 0 - general call address; rw == 1 - START byte
                         begin
-                            r_addr          <= r_addr;
-                            r_addr_valid    <= r_addr_valid;
-                            r_rw            <= r_rw;
+                            if(r_byte_buf[0])begin
+                                r_addr          <= r_addr;
+                                r_addr_valid    <= r_addr_valid;
+                                r_rw            <= r_rw;
+                            end else if(P_DEV_ADDR_LENGTH == 'd10)begin
+                                r_addr          <= r_addr;
+                                r_addr_valid    <= r_addr_valid;
+                                r_rw            <= r_rw;
+                            end else begin
+                                r_addr          <= 'h000;
+                                r_addr_valid    <= 1'b0;
+                                r_rw            <= 1'b1;
+                            end
                         end
                         7'b0000001: // CBUS address 
                         begin
@@ -669,9 +680,9 @@ always @(posedge aclk, negedge aresetn) begin
                                 end
                                 7'b1111000: // 10-bit target addressing
                                 begin
-                                    r_addr          <= 'h000;
-                                    r_addr_valid    <= 1'b0;
-                                    r_rw            <= 1'b1;
+                                    r_addr          <= r_addr;
+                                    r_addr_valid    <= r_addr_valid;
+                                    r_rw            <= r_rw;
                                 end
                                 default: // 7bit address
                                     if(f_addr_ok)begin
@@ -724,7 +735,17 @@ always @(posedge aclk, negedge aresetn) begin
             end else if(f_negedge_sck & (cnt == 'd8))begin
                 case (r_byte_buf[07:01])
                     7'b0000000: // rw == 0 - general call address; rw == 1 - START byte
-                        cnt <= 'd0;
+                        if(P_DEV_ADDR_LENGTH == 'd10)begin
+                            cnt <= 'd10;
+                        end else if(P_DEV_ADDR_LENGTH == 'd7)begin
+                            if(r_byte_buf[0])begin
+                                cnt <= 'd7;
+                            end else begin
+                                cnt <= 'd0;
+                            end
+                        end else begin
+                            cnt <= 'd0;
+                        end 
                     7'b0000001: // CBUS address
                         cnt <= 'd0;
                     7'b0000010: // reserved for different bus format
@@ -736,11 +757,29 @@ always @(posedge aclk, negedge aresetn) begin
                         7'b0000100: // Hs-mode controller code
                             cnt <= 'd0;
                         7'b1111100: // rw == 0 - NON; rw == 1  - device ID 
-                            cnt <= 'd0;
+                            if(r_byte_buf[0] == 1'b1)begin
+                                if(P_DEV_ADDR_LENGTH == 'd10)begin
+                                    cnt <= 'd10;
+                                end else if(P_DEV_ADDR_LENGTH == 'd7)begin
+                                    cnt <= 'd7;
+                                end else begin
+                                    cnt <= 'd0;
+                                end 
+                            end else begin
+                                cnt <= 'd0;
+                            end
                         7'b1111000: // 10-bit target addressing
-                            cnt <= 'd2;
+                            if(P_DEV_ADDR_LENGTH == 'd10)begin
+                                cnt <= 'd2;
+                            end else begin
+                                cnt <= 'd0;
+                            end
                         default: // 7bit address 
-                            cnt <= 'd7;
+                            if(P_DEV_ADDR_LENGTH == 'd7)begin
+                                cnt <= 'd7;
+                            end else begin
+                                cnt <= 'd0;
+                            end
                         endcase
                 endcase
             end else begin
@@ -791,22 +830,22 @@ always @(posedge aclk, negedge aresetn) begin
         if(reset)begin
             r_reg_buf   <= 'd0;
             r_reg_valid <= 1'b0;
-        end else if(!f_cnt_bit_en)begin
-            if(reg_ready)begin
-                r_reg_buf   <= 'd0;
-                r_reg_valid <= 1'b0;
-            end else begin
-                r_reg_buf   <= r_reg_buf;
-                r_reg_valid <= r_reg_valid;
-            end
-        end else if(r_rw)begin  //read
-            if(reg_ready)begin
-                r_reg_buf   <= 'd0;
-                r_reg_valid <= 1'b0;
-            end else begin
-                r_reg_buf   <= r_reg_buf;
-                r_reg_valid <= r_reg_valid;
-            end
+//        end else if(!f_cnt_bit_en)begin
+//            if(reg_ready)begin
+//                r_reg_buf   <= 'd0;
+//                r_reg_valid <= 1'b0;
+//            end else begin
+//                r_reg_buf   <= r_reg_buf;
+//                r_reg_valid <= r_reg_valid;
+//            end
+//        end else if(r_rw)begin  //read
+//            if(reg_ready)begin
+//                r_reg_buf   <= 'd0;
+//                r_reg_valid <= 1'b0;
+//            end else begin
+//                r_reg_buf   <= r_reg_buf;
+//                r_reg_valid <= r_reg_valid;
+//            end
         end else begin
             if((FSM_I2C == state_DATA) & (FSM_I2C_REG == state_REG_ADDR))begin
                 if(f_negedge_sck & f_byte_end & f_reg_end)begin
@@ -847,15 +886,15 @@ always @(posedge aclk, negedge aresetn) begin
         if(reset)begin
             r_data_rx_buf       <= 'd0;
             r_data_rx_valid_buf <= 1'b0;
-        end else if(!f_cnt_bit_en)begin
-            r_data_rx_buf       <= 'd0;
-            r_data_rx_valid_buf <= 1'b0;
-        end else if(r_rw)begin //read
-            r_data_rx_buf       <= 'd0;
-            r_data_rx_valid_buf <= 1'b0;
+//        end else if(!f_cnt_bit_en)begin
+//            r_data_rx_buf       <= 'd0;
+//            r_data_rx_valid_buf <= 1'b0;
+//        end else if(r_rw)begin //read
+//            r_data_rx_buf       <= 'd0;
+//            r_data_rx_valid_buf <= 1'b0;
         end else if((FSM_I2C == state_DATA) & (FSM_I2C_REG == state_REG_DATA))begin
             if(f_negedge_sck & f_byte_end)begin
-                if(f_data_end)begin
+                if(f_data_end & (!r_rw))begin
                     r_data_rx_buf       <= {(r_data_rx_buf << 8), r_byte_buf};
                     r_data_rx_valid_buf <= 1'b1;
                 end else if(wr_ready)begin
@@ -886,16 +925,16 @@ end
 always @(posedge aclk, negedge aresetn) begin
     if(!aresetn)begin
         r_data_tx_ready     <= 1'b0;
-        r_data_tx_buf       <= 'd0;
+        r_data_tx_buf       <= 'hFF;
         r_data_tx_valid_buf <= 1'b0;
     end else begin
         if(reset)begin
             r_data_tx_ready     <= 1'b0;
-            r_data_tx_buf       <= 'd0;
+            r_data_tx_buf       <= 'hFF;
             r_data_tx_valid_buf <= 1'b0;
         end else if(!f_cnt_bit_en)begin
             r_data_tx_ready     <= 1'b0;
-            r_data_tx_buf       <= 'd0;
+            r_data_tx_buf       <= 'hFF;
             r_data_tx_valid_buf <= 1'b0;
         end else if(r_rw)begin  //read
             if((FSM_I2C_REG == state_REG_WAIT)|(FSM_I2C_REG == state_REG_ADDR))begin
@@ -921,7 +960,7 @@ always @(posedge aclk, negedge aresetn) begin
                             r_data_tx_valid_buf <= 1'b1;
                         end else begin
                             r_data_tx_ready     <= 1'b1;
-                            r_data_tx_buf       <= 'd0;
+                            r_data_tx_buf       <= 'hFF;
                             r_data_tx_valid_buf <= 1'b0;
                         end
                     end else begin
@@ -970,50 +1009,48 @@ end
 // I2C interface SCL controller
 always @(posedge aclk, negedge aresetn) begin
     if(!aresetn)begin
-        SCK_r <= 'dZ;
+        SCK_r <= 'd1;
     end else begin
         if(reset)begin
-            SCK_r <= 'dZ;
+            SCK_r <= 'd1;
         end else if(!f_cnt_bit_en)begin
-            SCK_r <= 'dZ;
-        end else if(f_2ack)begin
-            if(FSM_I2C == state_ADDR)begin
-                if(f_addr_end & (!r_data_tx_valid_buf))begin
-                    if(((r_byte_buf[0])&(P_DEV_ADDR_LENGTH == 'd7)) | (r_rw &(P_DEV_ADDR_LENGTH == 'd10)))begin
-                        SCK_r <= 'd0;
-                    end else begin
-                        SCK_r <= 'dZ;
-                    end
+            SCK_r <= 'd1;
+        end else if((FSM_I2C == state_ACK) & r_master_next & f_2bytes)begin
+            if(r_data_tx_valid_buf)begin
+                SCK_r <= 'd1;
+            end else begin
+                SCK_r <= 'd0;
+            end
+        end else if(FSM_I2C == state_DATA)begin
+            if(f_master)begin
+                if((r_data_tx_valid_buf)|(f_WD))begin
+                    SCK_r <= 'd1;
                 end else begin
-                    SCK_r <= 'dZ;
-                end
-            end else if(FSM_I2C == state_DATA)begin
-                if(r_rw)begin
-                    if(f_data_end & (!r_data_tx_valid_buf))begin
-                        SCK_r <= 'd0;
-                    end else begin
-                        SCK_r <= 'dZ;
-                    end
-                end else if(FSM_I2C_REG == state_REG_ADDR)begin //----------------------?????????
-                    if(reg_ready | (!reg_valid))begin
-                        SCK_r <= 'dZ;
-                    end else begin
-                        SCK_r <= 'd0;
-                    end
-                end else if(FSM_I2C_REG == state_REG_DATA)begin //----------------------?????????
-                    if(wr_ready | (!wr_valid))begin
-                        SCK_r <= 'dZ;
-                    end else begin
-                        SCK_r <= 'd0;
-                    end
-                end else begin
-                    SCK_r <= 'dZ;
+                    SCK_r <= 'd0;
                 end
             end else begin
-                SCK_r <= 'dZ;
+                if((f_reg_last | f_data_last) & (f_negedge_sck | f_down_sck))begin
+                    if(FSM_I2C_REG == state_REG_ADDR)begin
+                        if((!r_reg_valid) | reg_ready)begin
+                            SCK_r <= 'd1;
+                        end else begin
+                            SCK_r <= 'd0;
+                        end
+                    end else if(FSM_I2C_REG == state_REG_DATA)begin
+                        if((!r_data_rx_valid_buf) | wr_ready)begin
+                            SCK_r <= 'd1;
+                        end else begin
+                            SCK_r <= 'd0;
+                        end
+                    end else begin
+                        SCK_r <= 'd1;
+                    end
+                end else begin
+                    SCK_r <= 'd1;
+                end
             end
         end else begin
-            SCK_r <= 'dZ;
+            SCK_r <= SCK_r;
         end
     end
 end
@@ -1021,44 +1058,98 @@ end
 // I2C interface SDA controller
 always @(posedge aclk, negedge aresetn) begin
     if(!aresetn)begin
-        SDA_r <= 'dZ;
+        SDA_r <= 'd1;
     end else begin
         if(reset)begin
-            SDA_r <= 'dZ;
+            SDA_r <= 'd1;
         end else if(!f_cnt_bit_en)begin
-            SDA_r <= 'dZ;
+            SDA_r <= 'd1;
         end else if(FSM_I2C == state_ADDR)begin
             if(f_2ack)begin
                 if(f_addr_end)begin
-                    if(r_byte_buf[07:01] == r_address)begin
-                        SDA_r <= 'd0;
-                    end else begin
-                        SDA_r <= 'dZ;
-                    end
+                    case (r_byte_buf[07:01])
+                        7'b0000000: // rw == 0 - general call address; rw == 1 - START byte
+                            if(r_byte_buf[00] == 1'b0)begin
+                                SDA_r <= 'd0;
+                            end else if(P_DEV_ADDR_LENGTH == 'd10)begin
+                                SDA_r <= 'd0;
+                            end else begin
+                                SDA_r <= 'd1;
+                            end
+                        7'b0000001: // CBUS address
+                            SDA_r <= 'd1;
+                        7'b0000010: // reserved for different bus format
+                            SDA_r <= 'd1;
+                        7'b0000011: // reserved for future purposes
+                            SDA_r <= 'd1;
+                        default:
+                            case (r_byte_buf[07:01] & 7'b1111100)
+                            7'b0000100: // Hs-mode controller code
+                                SDA_r <= 'd1;
+                            7'b1111100: // rw == 0 - NON; rw == 1  - device ID 
+                                if(r_byte_buf[00] == 1'b0)begin
+                                    SDA_r <= 'd1;
+                                end else if(P_DEV_ADDR_LENGTH == 'd10)begin
+                                    SDA_r <= 'd0;
+                                end else begin
+                                    SDA_r <= 'd1;
+                                end
+                            7'b1111000: // 10-bit target addressing
+                                if(P_DEV_ADDR_LENGTH == 'd10)begin
+                                    SDA_r <= 'd0;
+                                end else begin
+                                    SDA_r <= 'd1;
+                                end
+                            default: // 7bit address
+                                if(P_DEV_ADDR_LENGTH == 'd7)begin
+                                    if(r_byte_buf[07:01] == r_address)begin
+                                        SDA_r <= 'd0;
+                                    end else begin
+                                        SDA_r <= 'd1;
+                                    end
+                                end else begin
+                                    SDA_r <= 'd1;
+                                end
+                            endcase
+                    endcase
                 end else begin
                     SDA_r <= 'd0;
                 end
             end else begin
-                SDA_r <= 'dZ;
+                SDA_r <= 'd1;
             end
         end else if(FSM_I2C == state_ACK)begin
             if(f_negedge_sck)begin
-                SDA_r <= 'dZ;
+                if(r_master_next)begin
+                    if(r_data_tx_valid_buf)begin
+                        SDA_r <= r_data_tx_buf[7];
+                    end else begin
+                        SDA_r <= 'd1;
+                    end
+                end else begin
+                    SDA_r <= 'd1;
+                end
             end else begin
                 SDA_r <= SDA_r;
             end
         end else if(FSM_I2C == state_DATA)begin
             if(f_2ack)begin
                if(r_rw)begin
-                    SDA_r <= 'dZ;
+                    SDA_r <= 'd1;
                end else begin
-                    SDA_r <= 'd0;
+                    if(f_data_end)begin
+                        SDA_r <= 'd1;
+                    end else begin
+                        SDA_r <= 'd0;
+                    end
                end
             end else if(r_rw)begin
                 SDA_r <= r_data_tx_buf[7];
             end else begin
-                SDA_r <= 'dZ;
+                SDA_r <= 'd1;
             end
+        end else if(FSM_I2C == state_BUSY)begin
+                SDA_r <= 'd1;
         end else begin
             SDA_r <= SDA_r;
         end
