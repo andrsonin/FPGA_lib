@@ -76,27 +76,6 @@ assign posedge_SCK = SCK & (!SCK_last);
 
 wire negedge_SCK;
 assign negedge_SCK = (!SCK) & SCK_last;
-//-------------------//
-wire f_start;
-assign f_start = SCK_pos & negedge_SDA;
-
-wire f_start_s;
-assign f_start_s = ((FSM_I2C_redir != state_WAIT) & (cnt <= 'd1)) ? f_start : 1'b0;
-
-wire f_stop;
-assign f_stop = SCK_pos & posedge_SDA;
-
-wire f_Byte_end;
-assign f_Byte_end = (cnt >= 'd8) ?  negedge_SCK : 1'b0;
-
-wire f_addr10_detect;
-assign f_addr10_detect = ((Byte_buf & 8'b11111000) == 8'b11111000) ? 1'b1 : 1'b0;
-//-------------------//
-assign SCK_wire_0 = r_SCK_wire_0 ? 1'bz : SCK_sync[1] ;
-assign SCK_wire_1 = r_SCK_wire_1 ? 1'bz : SCK_sync[0] ;
-
-assign SDA_wire_0 = r_SDA_wire_0 ? 1'bz : SDA_sync[1] ;
-assign SDA_wire_1 = r_SDA_wire_1 ? 1'bz : SDA_sync[0] ;
 //-----------------------------------------------------------
 reg [07:00] FSM_I2C_redir;
 
@@ -118,6 +97,27 @@ reg r_SDA_wire_1;
 //
 reg f_FSM_ADR_last;
 //-------------------//
+wire f_start;
+assign f_start = SCK_pos & negedge_SDA;
+
+wire f_start_s;
+assign f_start_s = ((FSM_I2C_redir != state_WAIT) & (cnt <= 'd1)) ? f_start : 1'b0;
+
+wire f_stop;
+assign f_stop = SCK_pos & posedge_SDA;
+
+wire f_Byte_end;
+assign f_Byte_end = (cnt >= 'd8) ?  negedge_SCK : 1'b0;
+
+wire f_addr10_detect;
+assign f_addr10_detect = ((Byte_buf & 8'b11111000) == 8'b11111000) ? 1'b1 : 1'b0;
+//-------------------//
+assign SCK_wire_0 = r_SCK_wire_0 ? 1'bz : (SCK_sync[1] ? 1'bz : SCK_sync[1]);
+assign SCK_wire_1 = r_SCK_wire_1 ? 1'bz : (SCK_sync[0] ? 1'bz : SCK_sync[0]);
+
+assign SDA_wire_0 = r_SDA_wire_0 ? 1'bz : (SDA_sync[1] ? 1'bz : SDA_sync[1]);
+assign SDA_wire_1 = r_SDA_wire_1 ? 1'bz : (SDA_sync[0] ? 1'bz : SDA_sync[0]);
+//-------------------//
 initial begin
     f_wire_busy     = 1'b0;
     f_wire_master   = 1'b0;
@@ -125,10 +125,10 @@ initial begin
 
     FSM_I2C_redir = state_WAIT;
 
-    SDA_filter_0 = 3'd111;
-    SCK_filter_0 = 3'd111;
-    SDA_filter_1 = 3'd111;
-    SCK_filter_1 = 3'd111;
+    SDA_filter_0 = 3'b111;
+    SCK_filter_0 = 3'b111;
+    SDA_filter_1 = 3'b111;
+    SCK_filter_1 = 3'b111;
 
     r_addr10_detect = 1'b0;
     cnt             = 'd0;
@@ -196,7 +196,7 @@ always @(posedge aclk, negedge aresetn) begin
                     end                   
                 state_START:
                     if(f_stop)begin
-                        FSM_I2C_redir <= state_WAIT;
+                        FSM_I2C_redir <= state_STOP;
                         f_FSM_ADR_last <= 1'b0;
                     end else if(negedge_SCK)begin
                         FSM_I2C_redir <= state_ADDR;
@@ -207,7 +207,7 @@ always @(posedge aclk, negedge aresetn) begin
                     end
                 state_ADDR:
                     if(f_stop)begin
-                        FSM_I2C_redir <= state_WAIT;
+                        FSM_I2C_redir <= state_STOP;
                         f_FSM_ADR_last <= 1'b0;
                     end else if(f_start_s)begin
                         FSM_I2C_redir <= state_START;
@@ -224,7 +224,7 @@ always @(posedge aclk, negedge aresetn) begin
                     end
                 state_ACK:
                     if(f_stop)begin
-                        FSM_I2C_redir <= state_WAIT;
+                        FSM_I2C_redir <= state_STOP;
                         f_FSM_ADR_last <= 1'b0;
                     end else if(f_start)begin
                         FSM_I2C_redir <= state_START;
@@ -242,7 +242,7 @@ always @(posedge aclk, negedge aresetn) begin
                     end
                 state_DATA:
                     if(f_stop)begin
-                        FSM_I2C_redir <= state_WAIT;
+                        FSM_I2C_redir <= state_STOP;
                         f_FSM_ADR_last <= 1'b0;
                     end else if(f_start_s)begin
                         FSM_I2C_redir <= state_START;
@@ -257,9 +257,13 @@ always @(posedge aclk, negedge aresetn) begin
                         FSM_I2C_redir <= state_DATA;
                         f_FSM_ADR_last <= f_FSM_ADR_last;
                     end
+                state_STOP:begin
+                    FSM_I2C_redir <= state_WAIT;
+                    f_FSM_ADR_last <= 1'b0;
+                end
                 state_ERR:
                     if(f_stop)begin
-                        FSM_I2C_redir <= state_WAIT;
+                        FSM_I2C_redir <= state_STOP;
                         f_FSM_ADR_last <= 1'b0;
                     end else begin
                         FSM_I2C_redir <= state_ERR;
@@ -314,6 +318,14 @@ always @(posedge aclk, negedge aresetn) begin
                         r_SCK_wire_1 = 1'b0;
                     end
                 state_ACK:
+                    if(f_wire_master)begin
+                        r_SCK_wire_0 = 1'b0;
+                        r_SCK_wire_1 = 1'b1;
+                    end else begin
+                        r_SCK_wire_0 = 1'b1;
+                        r_SCK_wire_1 = 1'b0;
+                    end
+                state_STOP:
                     if(f_wire_master)begin
                         r_SCK_wire_0 = 1'b0;
                         r_SCK_wire_1 = 1'b1;
@@ -399,6 +411,24 @@ always @(posedge aclk, negedge aresetn) begin
                             end
                         end
                     end
+                state_STOP:
+                    if(f_wire_master)begin
+                        if(f_master_rw)begin
+                            r_SDA_wire_0 = 1'b1;
+                            r_SDA_wire_1 = SDA;
+                        end else begin
+                            r_SDA_wire_0 = SDA;
+                            r_SDA_wire_1 = 1'b1;
+                        end
+                    end else begin
+                        if(f_master_rw)begin
+                            r_SDA_wire_0 = SDA;
+                            r_SDA_wire_1 = 1'b1;
+                        end else begin
+                            r_SDA_wire_0 = 1'b1;
+                            r_SDA_wire_1 = SDA;
+                        end
+                    end
                 default:begin
                     r_SDA_wire_0 = 1'b1;
                     r_SDA_wire_1 = 1'b1;
@@ -482,6 +512,10 @@ always @(posedge aclk, negedge aresetn) begin
                     r_addr10_detect <= 1'b0;
                     f_master_rw <= f_master_rw;
                 end
+                state_STOP:begin
+                    r_addr10_detect <= 1'b0;
+                    f_master_rw <= f_master_rw;
+                end
                 default: begin
                     r_addr10_detect <= 1'b0;
                     f_master_rw <= 1'b0;
@@ -523,11 +557,15 @@ always @(posedge aclk, negedge aresetn) begin
                 state_ACK:begin
                     cnt <= 'd0;
                     Byte_buf <= 'd0;
-					 end
+				end
+                state_STOP:begin
+                    cnt <= 'd0;
+                    Byte_buf <= 'd0;
+                end
                 default: begin
                     cnt <= 'd0;
                     Byte_buf <= 'd0;
-					 end
+				end
             endcase
         end
     end            
