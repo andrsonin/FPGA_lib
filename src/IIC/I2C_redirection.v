@@ -1111,6 +1111,8 @@ assign SDA_wire_1 = reg_SDA_ctrl[1] ? 1'bZ : SDA_wire_0;
 endmodule
 //===========================================================
 //===========================================================
+//===========================================================
+//===========================================================
 module I2C_redirection_v3(
     // I2C IO interface
     // 
@@ -1146,7 +1148,7 @@ localparam [07:00]
     state_BUSY   = state_ERR    + 8'd1;   // 7
 //-----------------------------------------------------------
 initial begin
-	wire_busy		  = 2'b00;
+	 wire_busy		  = 2'b00;
     wire_master     = 1'b0;
     wire_master_rw  = 1'b1; // 1'b1 - read; 1'b0 - write;
 end
@@ -1240,40 +1242,30 @@ wire [01:00] SDA_sync_high;
 assign SDA_sync_high[0] = SDA_sync[0] & SDA_sync_last[0];
 assign SDA_sync_high[1] = SDA_sync[1] & SDA_sync_last[1];
 
-
 wire [01:00] wire_start;
 assign wire_start[0] = SDA_sync_negedge[0] & SCK_sync_high[0];
 assign wire_start[1] = SDA_sync_negedge[1] & SCK_sync_high[1];
-
-wire f_start;
-assign f_start = wire_start[0] | wire_start[1];
 
 wire [01:00] wire_stop;
 assign wire_stop[0] = SDA_sync_posedge[0] & SCK_sync_high[0];
 assign wire_stop[1] = SDA_sync_posedge[1] & SCK_sync_high[1];
 
-wire f_stop;
-assign f_stop = wire_stop[0] | wire_stop[1];
-
 wire [01:00] wire_fsm_clk;
 assign wire_fsm_clk[0] = wire_start[0] | wire_stop[0] | SCK_sync_negedge[0];
 assign wire_fsm_clk[1] = wire_start[1] | wire_stop[1] | SCK_sync_negedge[1];
 
+wire f_start;
+assign f_start = wire_start[0] | wire_start[1];
+
+wire f_stop;
+assign f_stop = wire_stop[0] | wire_stop[1];
+
+wire ff_stop;
+assign ff_stop = busy_wire ? (wire_master ? wire_stop[0] : wire_stop[1]) : 1'b0;
+
+wire busy_wire;
+assign busy_wire = wire_busy[0] | wire_busy[1];
 //-----------------------------------------------------------
-reg busy_reg;
-
-initial begin
-	busy_reg = 1'b0;
-end 
-
-always@(posedge f_start, posedge f_stop)begin
-	if(f_stop)begin
-		busy_reg <= 1'b0;
-	end else begin
-		busy_reg <= 1'b1;
-	end
-end
-
 always@(posedge wire_start[0], posedge wire_stop[0])begin
 	if(wire_stop[0])begin
 		wire_busy[0] <= 1'b0;
@@ -1289,12 +1281,17 @@ always@(posedge wire_start[1], posedge wire_stop[1])begin
 		wire_busy[1] <= 1'b1;
 	end
 end
+//-----------------------------------------------------------
+
+
+wire clk_fsm;
+assign clk_fsm = busy_wire ? (wire_master ? wire_fsm_clk[1] : wire_fsm_clk[0]) : 1'b0;
 
 wire SDA;
-assign SDA = busy_reg ? (wire_master ? SDA_sync[1] : SDA_sync[0]) : 1'b1;
+assign SDA = busy_wire ? (wire_master ? SDA_sync[1] : SDA_sync[0]) : 1'b1;
 
 wire SCK;
-assign SCK = busy_reg ? (wire_master ? SCK_sync[1] : SCK_sync[0]) : 1'b1;
+assign SCK = busy_wire ? (wire_master ? SCK_sync[1] : SCK_sync[0]) : 1'b1;
 //-----------------------------------------------------------
 always@(posedge f_start)begin
 	case(wire_start)
@@ -1305,20 +1302,19 @@ always@(posedge f_start)begin
 end
 //-----------------------------------------------------------
 reg [07:00] FSM_I2C_redir;
+reg [07:00] FSM_I2C_redir_last;
 reg [07:00] cnt;
 reg reg_det10bit;
 
 initial begin
 	FSM_I2C_redir = state_WAIT;
+	FSM_I2C_redir_last = state_WAIT;
 	cnt = 'd0;
 	reg_det10bit = 1'b0;
 end
 
-wire clk_fsm;
-assign clk_fsm = busy_reg ? (wire_master ? wire_fsm_clk[1] : wire_fsm_clk[0]) : 1'b0;
-
-always@(posedge clk_fsm, negedge aresetn, negedge busy_reg)begin
-	if((!aresetn) | (!busy_reg)) begin
+always@(posedge clk_fsm, negedge aresetn, negedge busy_wire)begin
+	if((!aresetn) | (!busy_wire)) begin
 		cnt <= 'd0;
 	end else begin
 		if((FSM_I2C_redir > state_START) & (FSM_I2C_redir < state_STOP))begin
@@ -1333,18 +1329,23 @@ always@(posedge clk_fsm, negedge aresetn, negedge busy_reg)begin
 	end
 end 
 
-always@(posedge clk_fsm, negedge aresetn /*, negedge busy_reg*/)begin
-	if((!aresetn) /*| (!busy_reg)*/) begin
+always@(posedge clk_fsm, negedge aresetn /*, negedge busy_wire*/)begin
+	if((!aresetn) /*| (!busy_wire)*/) begin
 		FSM_I2C_redir <= state_BUSY;
+		FSM_I2C_redir_last <= state_BUSY;
 		
 	end else begin
-		if(f_stop)begin
+		if(ff_stop)begin
 			FSM_I2C_redir <= state_WAIT;
+			FSM_I2C_redir_last <= state_WAIT;
 			
 		end else if(f_start)begin
 			FSM_I2C_redir <= state_START;
+			FSM_I2C_redir_last <= state_START;
 			
 		end else begin
+			FSM_I2C_redir_last <= FSM_I2C_redir;
+			
 			case(FSM_I2C_redir)
 			state_WAIT:
 				FSM_I2C_redir <= state_WAIT;
@@ -1382,32 +1383,39 @@ always@(posedge clk_fsm, negedge aresetn /*, negedge busy_reg*/)begin
 end
 //-----------------------------------------------------------
 reg [07:00] byte_buf;
+reg ack_buf;
 
 initial begin
     byte_buf <= {8{1'b1}};
+	 ack_buf	 <= 1'b1;
 end
 
 wire cnt_clk;
-assign cnt_clk = busy_reg ? (wire_master ? SCK_sync_posedge[1] : SCK_sync_posedge[0]) : 1'b0;
+assign cnt_clk = busy_wire ? (wire_master ? SCK_sync_posedge[1] : SCK_sync_posedge[0]) : 1'b0;
 
-always@(posedge cnt_clk, negedge aresetn, negedge busy_reg)begin
-    if((!aresetn)|(!busy_reg))begin
+always@(posedge cnt_clk, negedge aresetn, negedge busy_wire)begin
+    if((!aresetn)|(!busy_wire))begin
         byte_buf <= {8{1'b1}};
+		  ack_buf	 <= 1'b1;
     end else begin
         if((FSM_I2C_redir > state_START) & (FSM_I2C_redir < state_STOP))begin
             if(FSM_I2C_redir == state_ACK)begin
                 byte_buf <= {8{1'b1}};
+					 ack_buf	 <= SDA;
             end else begin
 					if(cnt == 0)begin
 						byte_buf[00]	 <= SDA;
 						byte_buf[07:01] <= {7{1'b1}};
+						ack_buf	 <= 1'b1;
 					end else begin
 						byte_buf[00] 	 <= SDA;
 						byte_buf[07:01] <= byte_buf[06:00];
+						ack_buf	 <= 1'b1;
 					end
             end
         end else begin
             byte_buf <= {8{1'b1}};
+				ack_buf <= 1'b1;
         end
     end
 end
@@ -1425,8 +1433,8 @@ end
 wire f_addr_end;
 assign f_addr_end  = (FSM_I2C_redir == state_ACK) ? (reg_rw_flag_ok ? 1'b1 : ~reg_det10bit) : reg_rw_flag_ok;
 
-always@(posedge clk_fsm, negedge aresetn, negedge busy_reg)begin
-    if((!aresetn)|(!busy_reg))begin
+always@(posedge clk_fsm, negedge aresetn, negedge busy_wire)begin
+    if((!aresetn)|(!busy_wire))begin
         reg_rw_flag_ok <= 1'b0;
         reg_det10bit <= 1'b0;
         addr_ok <= 1'b0;
@@ -1469,8 +1477,8 @@ always@(posedge clk_fsm, negedge aresetn, negedge busy_reg)begin
     end
 end
 //-----------------------------------------------------------
-always@(posedge clk_fsm, negedge aresetn, negedge busy_reg)begin
-    if((!aresetn)|(!busy_reg))begin
+always@(posedge clk_fsm, negedge aresetn, negedge busy_wire)begin
+    if((!aresetn)|(!busy_wire))begin
         wire_master_rw <= 1'b0;
     end else begin
         if((FSM_I2C_redir > state_START) & (FSM_I2C_redir < state_STOP))begin
@@ -1500,8 +1508,8 @@ end
 wire [32:00] cnt_frec_sum;
 assign cnt_frec_sum = cnt_frec_med + cnt_frec;
 
-always@(posedge aclk, negedge aresetn, negedge busy_reg)begin
-    if((!aresetn)|(!busy_reg))begin
+always@(posedge aclk, negedge aresetn, negedge busy_wire)begin
+    if((!aresetn)|(!busy_wire))begin
         cnt_frec <= 'd0;
         cnt_frec_min <= {32{1'b1}};
         cnt_frec_max <= {32{1'b0}};
@@ -1571,12 +1579,12 @@ initial begin
     SCK_wire_ctrl <= 2'b00;
 end
 
-always@(posedge clk_fsm, negedge aresetn, negedge busy_reg)begin
-	if((!aresetn)|(!busy_reg))begin
+always@(posedge clk_fsm, negedge aresetn, negedge busy_wire)begin
+	if((!aresetn)|(!busy_wire))begin
         SDA_wire_ctrl <= 2'b00;
         SCK_wire_ctrl <= 2'b00;
 	end else begin
-		if(f_stop)begin
+		if(ff_stop)begin
             SDA_wire_ctrl <= 2'b00;
             SCK_wire_ctrl <= 2'b00;
 		end else if(f_start)begin
@@ -1614,22 +1622,32 @@ always@(posedge clk_fsm, negedge aresetn, negedge busy_reg)begin
 				end
 			end	
 			state_ACK:begin
-				if(addr_ok)begin
-                    SDA_wire_ctrl <= ~SDA_wire_ctrl;
+				if(addr_ok)begin // data
+						if(ack_buf)begin // NACK
+							if(wire_master_rw)begin
+								SDA_wire_ctrl <= SDA_wire_ctrl;
+							end else begin
+								SDA_wire_ctrl <= ~SDA_wire_ctrl;
+							end
+						end else begin	// ACK
+							SDA_wire_ctrl <= ~SDA_wire_ctrl;
+						end
+									 
                     SCK_wire_ctrl <= SCK_wire_ctrl;
-				end else begin
-				    if(f_addr_end)begin
-				        if(wire_master_rw)begin
-                            SDA_wire_ctrl <= SDA_wire_ctrl;
-                            SCK_wire_ctrl <= SCK_wire_ctrl;
-				        end else begin
-                            SDA_wire_ctrl <= ~SDA_wire_ctrl;
-                            SCK_wire_ctrl <= SCK_wire_ctrl;
-				        end
-				    end else begin
-                        SDA_wire_ctrl <= ~SDA_wire_ctrl;
-                        SCK_wire_ctrl <= SCK_wire_ctrl;
-				    end
+				end else if(f_addr_end)begin	// addr ok
+						if(ack_buf)begin // NACK
+							SDA_wire_ctrl <= ~SDA_wire_ctrl;
+						end else begin	// ACK
+							if(wire_master_rw)begin
+								SDA_wire_ctrl <= SDA_wire_ctrl;
+							end else begin
+								SDA_wire_ctrl <= ~SDA_wire_ctrl;
+							end
+						end
+                  SCK_wire_ctrl <= SCK_wire_ctrl;
+				end else begin	// addr not ok
+                  SDA_wire_ctrl <= ~SDA_wire_ctrl;
+                  SCK_wire_ctrl <= SCK_wire_ctrl;
 				end
 			end	
 			state_DATA:begin
@@ -1656,14 +1674,17 @@ initial begin
     clk_low_ctrl = 1'b0;
 end
 
-wire [31:00] cnt_frec_low_ctrl_level;
-assign cnt_frec_low_ctrl_level = cnt_frec_min - (cnt_frec_min >> 2);
+wire [31:00] cnt_frec_min_div22;
+assign cnt_frec_min_div22 = (cnt_frec_min >> 2);
 
-always@(posedge aclk, negedge aresetn, negedge busy_reg)begin
-	if((!aresetn)|(!busy_reg))begin
+wire [31:00] cnt_frec_low_ctrl_level;
+assign cnt_frec_low_ctrl_level = cnt_frec_min - cnt_frec_min_div22;
+
+always@(posedge aclk, negedge aresetn, negedge busy_wire)begin
+	if((!aresetn)|(!busy_wire))begin
         clk_low_ctrl <= 1'b0;
     end else begin
-        if(!SCK)begin
+        if((!SCK) & ((FSM_I2C_redir == state_ACK) | ((FSM_I2C_redir == state_DATA) & (cnt == 'd0))))begin
             if(cnt_frec_min != 'd0)begin
                 if(cnt_frec < cnt_frec_low_ctrl_level)begin
                     clk_low_ctrl <= 1'b0;
@@ -1685,10 +1706,13 @@ wire [01:00] SDA_xor;
 assign SCK_xor[0] = SCK_wire_0 ^ SCK;
 assign SCK_xor[1] = SCK_wire_1 ^ SCK;
 assign SDA_xor[0] = SDA_wire_0 ^ SDA;
-assign SDA_xor[1] = SDA_wire_1 ^ SDA;
+assign SDA_xor[1] = SDA_wire_1 ^ SDA; 
 //-----------------------------------------------------------
-assign SCK_wire_0 = (SCK_wire_ctrl[0] ^ clk_low_ctrl) ? (SCK_wire_ctrl[1] ? 1'bZ : (SCK_sync[1] ? 1'bZ : 1'b0)) : 1'bZ;
-assign SCK_wire_1 = (SCK_wire_ctrl[1] ^ clk_low_ctrl) ? (SCK_wire_ctrl[0] ? 1'bZ : (SCK_sync[0] ? 1'bZ : 1'b0)) : 1'bZ;
+//assign SCK_wire_0 = (SCK_wire_ctrl[0] ^ clk_low_ctrl) ? (SCK_wire_ctrl[1] ? 1'bZ : (SCK_sync[1] ? 1'bZ : 1'b0)) : 1'bZ;
+//assign SCK_wire_1 = (SCK_wire_ctrl[1] ^ clk_low_ctrl) ? (SCK_wire_ctrl[0] ? 1'bZ : (SCK_sync[0] ? 1'bZ : 1'b0)) : 1'bZ;
+
+assign SCK_wire_0 = (SCK_wire_ctrl[0] ^ clk_low_ctrl) ? ((SCK_wire_ctrl[1] ^ clk_low_ctrl) ? 1'bZ : (SCK_sync[1] ? 1'bZ : 1'b0)) : 1'bZ;
+assign SCK_wire_1 = (SCK_wire_ctrl[1] ^ clk_low_ctrl) ? ((SCK_wire_ctrl[0] ^ clk_low_ctrl) ? 1'bZ : (SCK_sync[0] ? 1'bZ : 1'b0)) : 1'bZ;
 
 assign SDA_wire_0 = SDA_wire_ctrl[0] ? (SDA_wire_ctrl[1] ? 1'bZ : (SDA_sync[1] ? 1'bZ : 1'b0)) : 1'bZ;
 assign SDA_wire_1 = SDA_wire_ctrl[1] ? (SDA_wire_ctrl[0] ? 1'bZ : (SDA_sync[0] ? 1'bZ : 1'b0)) : 1'bZ;
