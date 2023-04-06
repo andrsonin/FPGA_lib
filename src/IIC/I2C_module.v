@@ -1284,7 +1284,7 @@ module I2C_logger
           FSM_i2c <= st_WAIT;
           I2C_ERR <= 1'b0;
         end
-        else if((w_I2C_SDA > d_I2C_SDA) & (w_I2C_SCL & d_I2C_SCL))
+        else if((w_I2C_SDA > d_I2C_SDA) & (w_I2C_SCL & d_I2C_SCL)) // STOP
         begin
           FSM_i2c <= st_WAIT;
           if((cnt === 'd9)|(cnt == 'd1))
@@ -1296,7 +1296,7 @@ module I2C_logger
             I2C_ERR <= 1'b1;
           end
         end
-        else if((w_I2C_SDA < d_I2C_SDA) & (w_I2C_SCL & d_I2C_SCL))
+        else if((w_I2C_SDA < d_I2C_SDA) & (w_I2C_SCL & d_I2C_SCL)) // START
         begin
           FSM_i2c <= st_START;
           if((FSM_i2c != st_WAIT)&(cnt > 'd0))
@@ -1437,7 +1437,7 @@ module I2C_logger
           b_last  <= 1'b1;
           b_valid <= 1'b0;
         end
-        else if((w_I2C_SCL & d_I2C_SCL) & (w_I2C_SDA > d_I2C_SDA))
+        else if((w_I2C_SCL & d_I2C_SCL) & (w_I2C_SDA > d_I2C_SDA)) // STOP
         begin // END MESSAGE
           if((s_axis_tready) | (!s_axi_tvalid_r) | (!b_valid))
           begin
@@ -1453,7 +1453,24 @@ module I2C_logger
             b_last  <= 1'b1;
             b_valid <= b_valid;
           end
-        end
+        end        
+        else if((w_I2C_SCL & d_I2C_SCL) & (w_I2C_SDA < d_I2C_SDA)) // RE START
+          begin // END MESSAGE
+            if((s_axis_tready) | (!s_axi_tvalid_r) | (!b_valid))
+            begin
+              b_data  <= 9'h1FF;
+              b_keep  <= 1'b0;
+              b_last  <= 1'b1;
+              b_valid <= 1'b0;
+            end
+            else
+            begin
+              b_data  <= b_data;
+              b_keep  <= b_keep;
+              b_last  <= 1'b1;
+              b_valid <= b_valid;
+            end
+          end
         else if((w_I2C_SCL > d_I2C_SCL) & (cnt == 'd0))
         begin // save First input Bit
           if((s_axis_tready) | (!s_axi_tvalid_r))
@@ -1579,7 +1596,7 @@ module I2C_logger
         end
         else if(s_axis_tready)
         begin
-          if((w_I2C_SCL & d_I2C_SCL) & (w_I2C_SDA > d_I2C_SDA) & ((cnt < 'd2) | (cnt == 'd9)))
+          if((w_I2C_SCL & d_I2C_SCL) & (w_I2C_SDA > d_I2C_SDA) & ((cnt < 'd2) | (cnt == 'd9))) // STOP
           begin // look last data
             if(b_valid)
             begin
@@ -1613,6 +1630,40 @@ module I2C_logger
               s_axi_tlast_r		<= 1'b0;
             end
           end
+          else if((w_I2C_SCL & d_I2C_SCL) & (w_I2C_SDA < d_I2C_SDA) & ((cnt < 'd2) | (cnt == 'd9))) // RE START
+            begin // look last data
+              if(b_valid)
+              begin
+                if((cnt == 'd0)|(cnt == 'd8)|(cnt == 'd9))
+                begin // normal data
+                  s_axi_tdata_r		<= b_data[07:00];
+                  s_axi_tvalid_r		<= b_valid;
+                  s_axi_tkeep_r		<= b_keep;
+                  s_axi_tlast_r		<= 1'b1;
+                end
+                else if(cnt == 'd1)
+                begin // save First input Bit data
+                  s_axi_tdata_r		<= b_data[08:01];
+                  s_axi_tvalid_r		<= b_valid;
+                  s_axi_tkeep_r		<= b_keep;
+                  s_axi_tlast_r		<= 1'b1;
+                end
+                else
+                begin
+                  s_axi_tdata_r		<= 'd0;
+                  s_axi_tvalid_r		<= 1'b0;
+                  s_axi_tkeep_r		<= 'd0;
+                  s_axi_tlast_r		<= 1'b0;
+                end
+              end
+              else
+              begin
+                s_axi_tdata_r		<= 'd0;
+                s_axi_tvalid_r	<= 1'b0;
+                s_axi_tkeep_r		<= 'd0;
+                s_axi_tlast_r		<= 1'b0;
+              end
+            end
           else if(b_valid & (cnt < 'd2))
           begin // look data
             if(cnt == 'd1)
