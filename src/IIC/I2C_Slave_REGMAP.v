@@ -41,15 +41,79 @@ module I2C_Slave_REGMAP#(
     output f_active     ,
     output f_rw         ,
     output f_err        ,
-	 
-	output [07:00] w_byte_buf,
-	output [31:00] w_data_buf,
-	output [31:00] w_comand_buf,
     
     output [((p_DATA_LENGTH *8) -1):00]    f_data_out,
     output [((p_DATA_LENGTH *8) -1):00]    f_data_out_buf,
     output [15:00] f_cnt_reg,
     //-----------------------
+	 input [((p_DATA_LENGTH *8) -1):00] reg_0,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_1,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_2,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_3,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_4,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_5,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_6,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_7,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_8,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_9,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_10,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_11,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_12,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_13,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_14,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_15,
+	 
+	 input [((p_DATA_LENGTH *8) -1):00] reg_16,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_17,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_18,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_19,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_20,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_21,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_22,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_23,
+	 output [((p_DATA_LENGTH *8) -1):00] reg_24,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_25,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_26,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_27,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_28,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_29,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_30,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_31,
+	 
+	 input [((p_DATA_LENGTH *8) -1):00] reg_32,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_33,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_34,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_35,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_36,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_37,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_38,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_39,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_40,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_41,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_42,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_43,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_44,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_45,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_46,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_47,
+	 
+	 input [((p_DATA_LENGTH *8) -1):00] reg_48,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_49,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_50,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_51,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_52,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_53,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_54,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_55,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_56,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_57,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_58,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_59,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_60,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_61,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_62,
+	 input [((p_DATA_LENGTH *8) -1):00] reg_63,
+	 //-----------------------
     // system inpterface
     input  reset    ,
     input  aresetn  ,
@@ -131,9 +195,6 @@ module I2C_Slave_REGMAP#(
     reg [((p_DATA_LENGTH *8) -1) : 00]      r_data_buf;
     reg [07:00]                             r_byte_buf;  
 	 
-    assign w_byte_buf = r_addr_buf;
-    assign w_comand_buf = r_comm_buf;
-    assign w_data_buf = r_data_buf;
 
     initial begin
         r_addr_buf = {10{1'b1}};
@@ -681,7 +742,7 @@ wire f_comand_bad;
             cnt_data_bit <= 'd0;
         end else if((w_SCK_posedge) &(FSM_I2C == STATE_DATA) &((cnt_command_bit >= ((p_COMMAND_LENGTH * 8))) | r_rw_buf)  &(cnt_data_bit < ((p_DATA_LENGTH * 8))))begin
             cnt_data_bit  <= cnt_data_bit + 'd1;
-        end else if((w_SCK_posedge) &(FSM_I2C == STATE_ACK) &((cnt_command_bit >= ((p_COMMAND_LENGTH * 8))) | r_rw_buf)  &(cnt_data_bit >= ((p_DATA_LENGTH * 8))))begin
+        end else if((w_SCK_negedge) &(FSM_I2C == STATE_ACK) &((cnt_command_bit >= ((p_COMMAND_LENGTH * 8))) | r_rw_buf)  &(cnt_data_bit >= ((p_DATA_LENGTH * 8))))begin
             cnt_data_bit <= 'd0;
         end else begin
             cnt_data_bit <= cnt_data_bit;
@@ -705,7 +766,7 @@ wire f_comand_bad;
             cnt_reg <= 'd0;
         end else if(FSM_I2C >= STATE_STOP)begin
             cnt_reg <= 'd0;
-        end else if((w_SCK_posedge) &(FSM_I2C == STATE_ACK) &((cnt_command_bit >= ((p_COMMAND_LENGTH * 8))) | r_rw_buf)  &(cnt_data_bit >= ((p_DATA_LENGTH * 8))))begin
+        end else if((w_SCK_negedge) &(FSM_I2C == STATE_ACK) &((cnt_command_bit >= ((p_COMMAND_LENGTH * 8))) | r_rw_buf)  &(cnt_data_bit >= ((p_DATA_LENGTH * 8))))begin
             cnt_reg  <= cnt_reg + 'd2;
         end else begin
             cnt_reg <= cnt_reg;
@@ -742,12 +803,10 @@ wire f_comand_bad;
             r_data_buf <= 'd0;
         end else if(FSM_I2C >= STATE_STOP)begin
             r_data_buf <= 'd0;
-        end else if((FSM_I2C == STATE_DATA) &((cnt_command_bit >= ((p_COMMAND_LENGTH * 8))) | r_rw_buf) &(cnt_data_bit < ((p_DATA_LENGTH * 8) -1)))begin
-            if(w_SCK_negedge)begin
-                r_data_buf <= r_data_buf << 1;
-            end else if(w_SCK_posedge)begin
+        end else if((FSM_I2C == STATE_DATA) &((cnt_command_bit >= ((p_COMMAND_LENGTH * 8))) | r_rw_buf) &(cnt_data_bit < ((p_DATA_LENGTH * 8))))begin
+            if(w_SCK_posedge)begin
                 r_data_buf[00] <= w_SDA_sync;
-                r_data_buf[((p_DATA_LENGTH * 8) -1):01] <= r_data_buf[((p_DATA_LENGTH * 8) -1):01];
+                r_data_buf[((p_DATA_LENGTH * 8) -1):01] <= r_data_buf[((p_DATA_LENGTH * 8) -2):00];
             end else begin
                 r_data_buf <= r_data_buf;
             end
@@ -791,7 +850,7 @@ wire f_comand_bad;
                 end else begin
                     if (r_rw_buf)begin
                         if(r_data_out_valid)begin
-                            SDA_ctrl <=  ~r_data_out_buf[((p_DATA_LENGTH *8) -1)]; //<<<<<<<<<<<<
+                            SDA_ctrl <=  ~r_data_out_buf[(p_DATA_LENGTH *8)-1]; //<<<<<<<<<<<<
                         end else begin
                             SDA_ctrl <= 1'b0; //<<<<<<<<<<<< 
                         end
@@ -809,7 +868,7 @@ wire f_comand_bad;
                         end else if ((!r_rw_buf) | (cnt_addr_bit == 'd2))begin
                             SDA_ctrl <= 1'b0;
                         end else begin
-                            SDA_ctrl <=  ~r_data_out_buf[((p_DATA_LENGTH *8) -1)]; //<<<<<<<<<<<<
+                            SDA_ctrl <=  ~r_data_out_buf[(p_DATA_LENGTH *8)-1]; //<<<<<<<<<<<<
                         end
                     end else begin
                         SDA_ctrl <= !r_addr_bad;
@@ -821,7 +880,7 @@ wire f_comand_bad;
                             SDA_ctrl <= 1'b0;
                         end else if(r_rw_buf)begin
                             if(r_data_out_valid)begin
-                                SDA_ctrl <=  ~r_data_out_buf[((p_DATA_LENGTH *8) -1)]; //<<<<<<<<<<<<
+                                SDA_ctrl <=  ~r_data_out_buf[(p_DATA_LENGTH *8)-1]; //<<<<<<<<<<<<
                             end else begin
                                 SDA_ctrl <= 1'b0; //<<<<<<<<<<<<
                             end
@@ -951,8 +1010,8 @@ wire f_comand_bad;
             STATE_DATA:begin
                 if(r_rw_buf)begin
                     if(w_SCK_negedge)begin
-                        r_data_out_buf[(p_DATA_LENGTH *8)-1:01]     <= r_data_out_buf[(p_DATA_LENGTH *8)-2:00];
-                        r_data_out_buf[00]                          <= 1'b1;
+                        r_data_out_buf[(p_DATA_LENGTH *8)-1:01]		<= r_data_out_buf[(p_DATA_LENGTH *8)-2:00];
+                        r_data_out_buf[00]			<= 1'b1;
                     end else begin
                         r_data_out_buf      <= r_data_out_buf;
                     end
@@ -978,262 +1037,262 @@ wire f_comand_bad;
         end else begin
             case (w_reg_addr)
             'h00    : begin
-                r_data_out          <= 'hABCD;
+                r_data_out          <= reg_0;
                 r_data_out_valid    <= 1'b1;
             end
             'h02    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
+                r_data_out          <= reg_1;
+                r_data_out_valid    <= 1'b0;
             end
             'h04    : begin
-                r_data_out          <= 'hEFEF;
-                r_data_out_valid    <= 1'b1;
+                r_data_out          <= reg_2;
+                r_data_out_valid    <= 1'b0;
             end
             'h06    : begin
-                r_data_out          <= 'h5678;
-                r_data_out_valid    <= 1'b1;
+                r_data_out          <= reg_3;
+                r_data_out_valid    <= 1'b0;
             end
             'h08    : begin
-                r_data_out          <= 'h9ECD;
+                r_data_out          <= reg_4;
                 r_data_out_valid    <= 1'b0;
             end
             'h0A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
+                r_data_out          <= reg_5;
+                r_data_out_valid    <= 1'b0;
             end
             'h0C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
+                r_data_out          <= reg_6;
+                r_data_out_valid    <= 1'b0;
             end
             'h0E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
+                r_data_out          <= reg_7;
+                r_data_out_valid    <= 1'b0;
             end
             'h10    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
+                r_data_out          <= reg_8;
+                r_data_out_valid    <= 1'b0;
             end
             'h12    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_9;
                 r_data_out_valid    <= 1'b0;
             end
             'h14    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_10;
                 r_data_out_valid    <= 1'b0;
             end
             'h16    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_11;
                 r_data_out_valid    <= 1'b0;
             end
             'h18    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_12;
                 r_data_out_valid    <= 1'b0;
             end
             'h1A    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_13;
                 r_data_out_valid    <= 1'b0;
             end
             'h1C    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_14;
                 r_data_out_valid    <= 1'b0;
             end
             'h1E    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_15;
                 r_data_out_valid    <= 1'b0;
             end
             //-----------------------------------
             'h20 + 'h00    : begin
-                r_data_out          <= 'hABCD;
+                r_data_out          <= reg_16;
                 r_data_out_valid    <= 1'b1;
             end
             'h20 + 'h02    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_17;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h04    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_18;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h06    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_19;
+                r_data_out_valid    <= 1'b1;
             end
             'h20 + 'h08    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_20;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h0A    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_21;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h0C    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_22;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h0E    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_23;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h10    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_24_r;
+                r_data_out_valid    <= 1'b1;
             end
             'h20 + 'h12    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_25;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h14    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_26;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h16    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_27;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h18    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_28;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h1A    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_29;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h1C    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_30;
                 r_data_out_valid    <= 1'b0;
             end
             'h20 + 'h1E    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_31;
                 r_data_out_valid    <= 1'b0;
             end
             //-----------------------------------
             'h40 + 'h00    : begin
-                r_data_out          <= 'hABCD;
+                r_data_out          <= reg_32;
                 r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h02    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_33;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h04    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_34;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h06    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_35;
+                r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h08    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_36;
+                r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h0A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_37;
+                r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h0C    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_38;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h0E    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_39;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h10    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_40;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h12    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_41;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h14    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_42;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h16    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_43;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h18    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_44;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h1A    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_45;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h1C    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_46;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h1E    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_47;
                 r_data_out_valid    <= 1'b0;
             end
             //-----------------------------------
             'h40 + 'h20*1 + 'h00    : begin
-                r_data_out          <= 'hABCD;
+                r_data_out          <= reg_48;
                 r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h20*1 + 'h02    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_49;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h04    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_50;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h06    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_51;
+                r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h20*1 + 'h08    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_52;
+                r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h20*1 + 'h0A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+                r_data_out          <= reg_53;
+                r_data_out_valid    <= 1'b1;
             end
             'h40 + 'h20*1 + 'h0C    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_54;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h0E    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_55;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h10    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_56;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h12    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_57;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h14    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_58;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h16    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_59;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h18    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_60;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h1A    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_61;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h1C    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_62;
                 r_data_out_valid    <= 1'b0;
             end
             'h40 + 'h20*1 + 'h1E    : begin
-                r_data_out          <= 'h1234;
+                r_data_out          <= reg_63;
                 r_data_out_valid    <= 1'b0;
             end
             //-----------------------------------
@@ -1244,284 +1303,32 @@ wire f_comand_bad;
             endcase 
         end    
     end
-/*
+	 
+	 reg [((p_DATA_LENGTH *8) -1):00] reg_24_r;
+	 
+	 initial begin
+		reg_24_r <= 'd0;
+	 end
+	 
+	 assign reg_24 = reg_24_r;
+
     always @(posedge aclk, negedge aresetn, posedge reset) begin
         if((!aresetn) | reset)begin
-            ///
-            // reg_0 <= 'd0;
-            ///
+            reg_24_r <= 'd0;
 
-            // r_data_in_valid <= 'd0;
-        end else ((FSM_I2C == STATE_ACK) & (FSM_I2C_last == STATE_DATA) & w_SCK_negedge)begin
+        end else if((FSM_I2C == STATE_ACK) & (FSM_I2C_last == STATE_DATA) &(cnt_data_bit >= ((p_DATA_LENGTH * 8))) & w_SCK_negedge &(!r_rw_buf))begin
             case (w_reg_addr)
-            'h00    : begin
-                reg_0 <= r_data_in;
-                r_data_in_valid    <= 1'b0;
-            end
-            'h02    : begin
-                r_data_out          <= 'h1234;
-                r_data_in_valid    <= 1'b0;
-            end
-            'h04    : begin
-                r_data_out          <= 'hEFEF;
-                r_data_in_valid    <= 1'b0;
-            end
-            'h06    : begin
-                r_data_out          <= 'h5678;
-                r_data_in_valid    <= 1'b0;
-            end
-            'h08    : begin
-                r_data_out          <= 'h9ECD;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h0A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
-            end
-            'h0C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
-            end
-            'h0E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
-            end
-            'h10    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b1;
-            end
-            'h12    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h14    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h16    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h18    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h1A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h1C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h1E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            //-----------------------------------
-            'h20 + 'h00    : begin
-                r_data_out          <= 'hABCD;
-                r_data_out_valid    <= 1'b1;
-            end
-            'h20 + 'h02    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h04    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h06    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h08    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h0A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h0C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h0E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h10    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h12    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h14    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h16    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h18    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h1A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h1C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h20 + 'h1E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            //-----------------------------------
-            'h40 + 'h00    : begin
-                r_data_out          <= 'hABCD;
-                r_data_out_valid    <= 1'b1;
-            end
-            'h40 + 'h02    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h04    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h06    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h08    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h0A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h0C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h0E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h10    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h12    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h14    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h16    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h18    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h1A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h1C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h1E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            //-----------------------------------
-            'h40 + 'h20*1 + 'h00    : begin
-                r_data_out          <= 'hABCD;
-                r_data_out_valid    <= 1'b1;
-            end
-            'h40 + 'h20*1 + 'h02    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h04    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h06    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h08    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h0A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h0C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h0E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h10    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h12    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h14    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h16    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h18    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h1A    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h1C    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
-            end
-            'h40 + 'h20*1 + 'h1E    : begin
-                r_data_out          <= 'h1234;
-                r_data_out_valid    <= 1'b0;
+            'h20 + 'h10	: begin
+                reg_24_r	<= r_data_in;
             end
             //-----------------------------------
             default :begin 
-                r_data_out          <= {(p_DATA_LENGTH *8){1'b1}};
-                r_data_out_valid    <= 1'b0;
+                reg_24_r <= reg_24_r;
             end
             endcase 
         end
     end
-*/
+
     assign f_address_ok = !r_addr_bad;
 //    assign f_active = SDA_ctrl;
     assign f_err = (FSM_I2C == STATE_ERROR) ? 1'b1 : 1'b0;
